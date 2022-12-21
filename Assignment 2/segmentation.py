@@ -183,22 +183,6 @@ def color_position_features(img):
 
     return features
 
-def my_features(img):
-    """ Implement your own features
-
-    Args:
-        img - array of shape (H, W, C)
-
-    Returns:
-        features - array of (H * W, C)
-    """
-    features = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-    return features
-
-
 ### Quantitative Evaluation
 def compute_accuracy(mask_gt, mask):
     """ Compute the pixel-wise accuracy of a foreground-background segmentation
