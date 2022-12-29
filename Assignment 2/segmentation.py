@@ -31,15 +31,67 @@ def kmeans(features, k, num_iters=100):
 
     # Randomly initalize cluster centers
     idxs = np.random.choice(N, size=k, replace=False)
-    centers = features[idxs]
+    centroids = features[idxs]
     assignments = np.zeros(N, dtype=np.uint32)
 
     for n in range(num_iters):
         ### YOUR CODE HERE
-        pass
+        # 1. Assign each point to the closest centroid
+        assignments = assign(features,centroids,k)
+        old_Centroids = centroids.copy()
+        # 2. Compute new centroid of each cluster
+        centroids = get_New_Centroids(features,assignments,k)
+        # 3. Stop if cluster assignments did not change
+        if is_Converged(old_Centroids,centroids,k):
+            break
         ### END YOUR CODE
 
     return assignments
+
+# this method assigns labels to each feature, it loops over the feaures, and calculates all distances and choose the closest
+def assign(features,centroids,k) :
+    N, _ = features.shape
+    assignments = np.zeros(N)
+    for i in range(N):
+        distances = np.zeros(k)
+        for j in range(len(centroids)):
+            distances[j] = euclidean_distance(features[i],centroids[j])
+        closest_distance = np.argmin(distances)   
+        assignments[i] = closest_distance
+    return assignments 
+
+# this method gets the new centroids for all features
+def get_New_Centroids(features,assignments,k) :
+    centroids = [[] for _ in range(k)]
+    for i in range(k):
+        centroids[i] = np.mean(features[assignments == i], axis=0)
+    return centroids    
+
+# this method checks if the previous centroids are the same new ones, by calculating the distance between each old and new centroid
+# and if sum of all distances are zero, then we need to stop.
+def is_Converged(old_Centroids, new_Centroids,k):
+    distances = [[] for _ in range(k)]
+    for i in range(k) :
+        distances[i] = euclidean_distance(old_Centroids[i],new_Centroids[i])
+    return sum(distances) == 0    
+
+# this calculates the euclidean distance between two vectors represent the feature and the centroid.
+def euclidean_distance(x1,x2):
+    return np.sqrt(np.sum((x1 - x2)**2, axis=0))
+
+# this method makes use of cdist function to calculate distances between each feature and all centroids fast
+def assign_Fast(features,centroids,k):
+    N, _ = features.shape
+    assignments = np.zeros(N)
+    distances = cdist(features,centroids)
+    assignments = np.argmin(distances,axis=1)
+    return assignments    
+
+# this method mormalizes the features
+def normalize_Features(features) :
+    mean = np.mean(features,axis = 0)
+    standard_deviation = np.std(features,axis = 0)
+    return (features - mean)/standard_deviation
 
 def kmeans_fast(features, k, num_iters=100):
     """ Use kmeans algorithm to group features into k clusters.
@@ -67,12 +119,19 @@ def kmeans_fast(features, k, num_iters=100):
 
     # Randomly initalize cluster centers
     idxs = np.random.choice(N, size=k, replace=False)
-    centers = features[idxs]
+    centroids = features[idxs]
     assignments = np.zeros(N, dtype=np.uint32)
 
     for n in range(num_iters):
         ### YOUR CODE HERE
-        pass
+        # 1. Assign each point to the closest centroid using assign_Fast method
+        assignments = assign_Fast(features,centroids,k)
+        old_Centroids = centroids.copy()
+        # 2. Compute new centroid of each cluster
+        centroids = get_New_Centroids(features,assignments,k)
+        # 3. Stop if cluster assignments did not change
+        if is_Converged(old_Centroids,centroids,k):
+            break
         ### END YOUR CODE
 
     return assignments
@@ -149,7 +208,9 @@ def color_features(img):
     features = np.zeros((H*W, C))
 
     ### YOUR CODE HERE
-    pass
+    # All we need is to flatten/reshape the image array, so that each pixel will be treated as 
+    # an independent array, and this can be done using "reshape" method
+    features = img.reshape(H*W, C)
     ### END YOUR CODE
 
     return features
@@ -178,7 +239,64 @@ def color_position_features(img):
     features = np.zeros((H*W, C+2))
 
     ### YOUR CODE HERE
-    pass
+    # First, we need to store all possible combinations between x,y to represent all positions, so that we can add them to our 
+    # feature vector. so, the array of all possible locations will look like 
+            #                            [[0,0],[0,1],[0,2],......,[0,n],
+            #                             [1,0],[1,1],[1,2],......,[1,n],
+            #                                         .
+            #                                         .
+            #                             [n,0],[n,1],[n,2],......,[n,n]]
+
+    # this can be done using "np.dstack" method which combines an array and stores it like a stack
+    # however, to be able to use np.dstack method and reach to our goal array, we need the input to be like
+            #                            [[0,0,0,...,1,1,1,.......,n,n,n],
+            #                             [0,1,2,...,0,1,2,.......,0,1,2]] 
+        
+    # And the above array can be formed using "np.mgrid" method which returns mesh-grid ndarrays all of the same dimensions,  
+    # and then reshaping it to be (2,h*w), so the steps are as follows :-
+    # 1-create mesh-grid ndarrays
+    # 2-reshape it to be (2,h*w)
+    # 3-use np.dstack to have all locations
+    mesh_grid = np.mgrid[0 : H, 0 : W]
+    # the output will be 
+                                    #array([[[  0,   0,   0, ...,   0,   0,   0],
+                                    #        [  1,   1,   1, ...,   1,   1,   1],
+                                    #        [  2,   2,   2, ...,   2,   2,   2],
+                                    #        ...,
+                                    #        [396, 396, 396, ..., 396, 396, 396],
+                                    #        [397, 397, 397, ..., 397, 397, 397],
+                                    #        [398, 398, 398, ..., 398, 398, 398]],
+                                    #
+                                    #       [[  0,   1,   2, ..., 621, 622, 623],
+                                    #        [  0,   1,   2, ..., 621, 622, 623],
+                                    #        [  0,   1,   2, ..., 621, 622, 623],
+                                    #        ...,
+                                    #        [  0,   1,   2, ..., 621, 622, 623],
+                                    #        [  0,   1,   2, ..., 621, 622, 623],
+                                    #        [  0,   1,   2, ..., 621, 622, 623]]])
+    mesh_grid_reshaped = mesh_grid.reshape(2,H*W)                                    
+    # the output will be 
+                                    #array([[  0,   0,   0, ..., 398, 398, 398],
+                                    #       [  0,   1,   2, ..., 621, 622, 623]])
+    xy_combinations = np.dstack(mesh_grid_reshaped)        
+    # the final output will be
+                                    #array([[[  0,   0],
+                                    #        [  0,   1],
+                                    #        [  0,   2],
+                                    #        ...,
+                                    #        [398, 621],
+                                    #        [398, 622],
+                                    #        [398, 623]]])
+                            
+    # now, we have the positions to be store,so let's prepare the colors to be stored also
+    # color shape is (h,w,3), so let's flatten/reshape this array to be (h*w,3), in this way, we have each pixel color
+    # as an independent array (r,g,b), and this will make it easy for us to concatenate them later
+    color_reshaped = color.reshape((H * W, 3))
+    # now, let's concatenate color and position for each pixel to the final feature vector
+    features[:,0:C] = color_reshaped
+    features[:,C:C+2] = xy_combinations
+    # normalize features
+    features = normalize_Features(features)
     ### END YOUR CODE
 
     return features
@@ -202,7 +320,19 @@ def compute_accuracy(mask_gt, mask):
 
     accuracy = None
     ### YOUR CODE HERE
-    pass
+    #---------------------------------------------------------------------------------------
+    # First approach using nested loop to search for pixels where mask and mask_gt agree
+    count = 0
+    for i in range(len(mask)) : 
+        for j in range(len(mask[0])) :
+            if(mask[i][j] == mask_gt[i][j]):
+                count += 1
+    
+    #accuracy = (count/no_of_pixels)   
+    #---------------------------------------------------------------------------------------
+    #Second approach makes use of numpy mean function
+    accuracy = np.mean(mask_gt == mask)        
+    #---------------------------------------------------------------------------------------
     ### END YOUR CODE
 
     return accuracy
